@@ -15,8 +15,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
     QStackedWidget,
-    QLabel
+    QLabel,
+    QApplication
 )
+
+from PySide6.QtGui import QCloseEvent
 
 
 class MainWindow(QMainWindow):
@@ -143,3 +146,14 @@ class MainWindow(QMainWindow):
         }
 
         """)
+
+    def closeEvent(self, event: QCloseEvent):
+        """Capturer la fermeture de l'application et fermer les dialogues en cours"""
+        # Trouver et fermer les wizards AddPrinterWizard en cours
+        from ui.pages.printers_page import AddPrinterWizard
+        
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, AddPrinterWizard) and widget.isVisible():
+                widget.reject()  # Déclenche le rollback
+        
+        event.accept()

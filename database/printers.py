@@ -61,6 +61,65 @@ def get_printer_models():
             return [row[0] for row in cursor.fetchall()]
 
 
+def add_printer_model(model_name):
+    """
+    Ajoute un nouveau modèle d'imprimante à la base de données.
+    
+    Args:
+        model_name (str): Nom du modèle d'imprimante (ex: 'M999', 'M575')
+        
+    Returns:
+        bool: True si le modèle a été ajouté, False sinon (ex: modèle déjà existant)
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            # Vérifier si le modèle existe déjà
+            cursor.execute(
+                "SELECT id FROM printer_models WHERE model_name=%s",
+                (model_name,)
+            )
+
+            if cursor.fetchone():
+                return False
+
+            # Ajouter le nouveau modèle
+            cursor.execute(
+                "INSERT INTO printer_models (model_name) VALUES (%s)",
+                (model_name,)
+            )
+
+        conn.commit()
+
+    return True
+
+
+def delete_printer_model(model_name):
+    """
+    Supprime un modèle d'imprimante de la base de données.
+    Utilisé pour le rollback en cas d'erreur lors de la création.
+    
+    Args:
+        model_name (str): Nom du modèle à supprimer
+        
+    Returns:
+        bool: True si le modèle a été supprimé, False sinon
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                "DELETE FROM printer_models WHERE model_name=%s",
+                (model_name,)
+            )
+
+            deleted = cursor.rowcount > 0
+
+        conn.commit()
+
+    return deleted
+
+
 def add_printer(name, owner, model, ip):
     """
     Ajoute une nouvelle imprimante à la base de données.

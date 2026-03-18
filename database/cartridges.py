@@ -132,3 +132,135 @@ def update_cartridge_stock(cartridge_name, new_stock, new_min_stock):
         conn.commit()
 
     return updated
+
+
+def add_cartridge(cartridge_name, color, initial_stock=0, min_stock=5):
+    """
+    Ajoute une nouvelle cartouche à la base de données.
+    
+    Args:
+        cartridge_name (str): Numéro de série de la cartouche (ex: 'HP-999K')
+        color (str): Couleur de la cartouche (Black, Cyan, Magenta, Yellow)
+        initial_stock (int): Stock initial (par défaut 0)
+        min_stock (int): Stock minimum (par défaut 5)
+        
+    Returns:
+        bool: True si la cartouche a été ajoutée, False sinon (ex: déjà existante)
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            # Vérifier si la cartouche existe déjà
+            cursor.execute(
+                "SELECT id FROM cartridges WHERE cartsn=%s",
+                (cartridge_name,)
+            )
+
+            if cursor.fetchone():
+                return False
+
+            # Ajouter la nouvelle cartouche
+            cursor.execute("""
+                INSERT INTO cartridges (cartsn, color, instock, minstock)
+                VALUES (%s, %s, %s, %s)
+            """, (cartridge_name, color, initial_stock, min_stock))
+
+        conn.commit()
+
+    return True
+
+
+def link_cartridge_to_model(cartridge_name, model_name):
+    """
+    Lie une cartouche à un modèle d'imprimante.
+    Crée une association entre les deux dans la table cartridge_models.
+    
+    Args:
+        cartridge_name (str): Numéro de série de la cartouche
+        model_name (str): Nom du modèle d'imprimante
+        
+    Returns:
+        bool: True si le lien a été créé, False sinon
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            # Récupérer l'ID de la cartouche
+            cursor.execute(
+                "SELECT id FROM cartridges WHERE cartsn=%s",
+                (cartridge_name,)
+            )
+            cartridge_result = cursor.fetchone()
+
+            if not cartridge_result:
+                return False
+
+            cartridge_id = cartridge_result[0]
+
+            # Récupérer l'ID du modèle d'imprimante
+            cursor.execute(
+                "SELECT id FROM printer_models WHERE model_name=%s",
+                (model_name,)
+            )
+            model_result = cursor.fetchone()
+
+            if not model_result:
+                return False
+
+            model_id = model_result[0]
+
+            # Vérifier que le lien n'existe pas déjà (cartridge_models n'a pas de colonne 'id')
+            cursor.execute("""
+                SELECT COUNT(*) FROM cartridge_models
+                WHERE cartridge_id=%s AND model_id=%s
+            """, (cartridge_id, model_id))
+
+            count = cursor.fetchone()[0]
+            if count > 0:
+                # Lien existe déjà
+                return False
+
+            # Créer l'association
+            cursor.execute("""
+                INSERT INTO cartridge_models (cartridge_id, model_id)
+                VALUES (%s, %s)
+            """, (cartridge_id, model_id))
+
+        conn.commit()
+
+    return True
+
+
+def delete_cartridge(cartridge_name):
+    """
+    Supprime une cartouche de la base de données.
+    Utilisé pour le rollback en cas d'erreur lors de la création.
+    
+    Args:
+        cartridge_name (str): Numéro de série de la cartouche
+        
+    Returns:
+        bool: True si la cartouche a été supprimée, False sinon
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            # Supprimer d'abord les associations dans cartridge_models (contrainte de clé étrangère)
+            cursor.execute("""
+                DELETE FROM cartridge_models
+                WHERE cartridge_id = (
+                    SELECT id FROM cartridges WHERE cartsn = %s
+                )
+            """, (cartridge_name,))
+
+            # Ensuite supprimer la cartouche elle-même
+            cursor.execute("""
+                DELETE FROM cartridges
+                WHERE cartsn = %s
+            """, (cartridge_name,))
+
+            deleted = cursor.rowcount > 0
+
+        conn.commit()
+
+    return deleted

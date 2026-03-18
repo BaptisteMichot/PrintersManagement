@@ -4,9 +4,16 @@
 # ==========================================
 
 import sys
+import os
+import warnings
+
+# Supprimer les warnings non critiques de PySide6
+warnings.filterwarnings("ignore", message=".*QFont::setPointSize.*")
+
 from database.connection import connect_db
 from ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QFont
 
 
 def main():
