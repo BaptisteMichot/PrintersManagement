@@ -48,6 +48,7 @@ class AddPrinterWizard(QDialog):
         self.new_cartridges = []
         self.selected_model = None
         self.printer_data = {}
+        self.show_cartridge_page = False  # Track if cartridge page should be shown
 
         # Layout principal
         main_layout = QVBoxLayout()
@@ -216,8 +217,16 @@ class AddPrinterWizard(QDialog):
             "Enter printer information"
         ]
 
-        self.title_label.setText(titles[page_num])
-        self.description_label.setText(descriptions[page_num])
+        # If cartridge page is not shown, adjust step numbering
+        if not self.show_cartridge_page and page_num == 2:
+            display_title = "Step 2: Printer Details"
+            display_description = "Enter printer information"
+        else:
+            display_title = titles[page_num]
+            display_description = descriptions[page_num]
+
+        self.title_label.setText(display_title)
+        self.description_label.setText(display_description)
         self.title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self.description_label.setStyleSheet("color: #666; font-size: 11px;")
 
@@ -243,8 +252,13 @@ class AddPrinterWizard(QDialog):
                 self.model_combo.removeItem(self.model_combo.findText(self.new_model_name))
                 self.new_model_name = None
                 self.cartridge_wizard_table.setRowCount(0)
+                self.show_cartridge_page = False
             
-            self.show_page(self.current_page - 1)
+            # If on page 2 and cartridge page is not shown, go back to page 0
+            if self.current_page == 2 and not self.show_cartridge_page:
+                self.show_page(0)
+            else:
+                self.show_page(self.current_page - 1)
 
     def next_page(self):
         """Aller à la page suivante"""
@@ -257,8 +271,10 @@ class AddPrinterWizard(QDialog):
             self.selected_model = model
             
             if self.new_model_name:
+                self.show_cartridge_page = True
                 self.show_page(1)
             else:
+                self.show_cartridge_page = False
                 self.show_page(2)
         
         elif self.current_page == 1:
@@ -295,6 +311,7 @@ class AddPrinterWizard(QDialog):
             return
         
         self.new_model_name = model_name
+        self.show_cartridge_page = True
         self.model_combo.addItem(model_name)
         self.model_combo.setCurrentText(model_name)
         

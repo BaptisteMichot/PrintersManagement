@@ -185,12 +185,20 @@ class PrintersPage(QWidget):
         Crée une barre de progression pour afficher le niveau d'encre/toner.
         
         Args:
-            value (int): Pourcentage de remplissage (0-100)
+            value (int or None): Pourcentage de remplissage (0-100) ou None si cartouche inexistante
             color (str): Couleur hexadécimale de la barre
             
         Returns:
-            QWidget: Widget contenant la barre de progression
+            QWidget: Widget contenant la barre de progression (ou vide si value est None)
         """
+        # Si la cartouche n'existe pas (None), retourner un widget vide
+        if value is None:
+            empty_container = QWidget()
+            empty_layout = QHBoxLayout(empty_container)
+            empty_layout.setContentsMargins(0, 0, 0, 0)
+            empty_layout.setSpacing(0)
+            return empty_container
+        
         value = int(value or 0)
 
         # Créer la barre de progression
@@ -201,7 +209,7 @@ class PrintersPage(QWidget):
         bar.setFixedHeight(18)
 
         # Définir le texte à afficher
-        text = "" if value == 0 else f"{value}%"
+        text = f"{value}%"
 
         # Choisir la couleur du texte en fonction de la couleur et de la valeur
         text_color = "black"
@@ -209,12 +217,17 @@ class PrintersPage(QWidget):
         if color == "#000000" and value >= 50:
             text_color = "white"
 
+        # Ajouter un indicateur visuel si cartouche à 10% ou moins
+        border_style = "none"
+        if value is not None and value <= 10:
+            border_style = "2px solid #ff4444"  # Bordure rouge
+
         bar.setFormat(text)
 
         # Appliquer les styles CSS
         bar.setStyleSheet(f"""
             QProgressBar {{
-                border: none;
+                border: {border_style};
                 border-radius: 6px;
                 background-color: #ecf0f1;
                 text-align: center;
@@ -310,12 +323,12 @@ class PrintersPage(QWidget):
             user = data.get("db_owner") or info.get("user") or ""
             model = data.get("db_model") or ""
 
-            # Initialiser les niveaux d'encre
+            # Initialiser les niveaux d'encre (None = cartouche inexistante)
             levels = {
-                "Black": 0,
-                "Cyan": 0,
-                "Magenta": 0,
-                "Yellow": 0
+                "Black": None,
+                "Cyan": None,
+                "Magenta": None,
+                "Yellow": None
             }
 
             # Remplir les niveaux d'encre à partir de consumables
