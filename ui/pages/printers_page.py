@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
     QLabel
 )
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QPropertyAnimation, QTimer
+from PySide6.QtGui import QColor
 from ui.workers import ScanWorker, ScanProgressDialog
 from ui.dialogs.add_printer_dialog import AddPrinterDialog
 from ui.dialogs.printer_cartridges_dialog import PrinterCartridgesDialog
@@ -217,17 +218,12 @@ class PrintersPage(QWidget):
         if color == "#000000" and value >= 50:
             text_color = "white"
 
-        # Ajouter un indicateur visuel si cartouche à 10% ou moins
-        border_style = "none"
-        if value is not None and value <= 10:
-            border_style = "2px solid #ff4444"  # Bordure rouge
-
         bar.setFormat(text)
 
         # Appliquer les styles CSS
         bar.setStyleSheet(f"""
             QProgressBar {{
-                border: {border_style};
+                border: none;
                 border-radius: 6px;
                 background-color: #ecf0f1;
                 text-align: center;
@@ -243,8 +239,33 @@ class PrintersPage(QWidget):
 
         # Créer un conteneur pour la barre
         container = QWidget()
-
         layout = QHBoxLayout(container)
+
+        # Ajouter une flèche clignotante si cartouche à 10% ou moins
+        if value is not None and value <= 10:
+            arrow = QLabel("→")
+            arrow.setStyleSheet("color: #ff4444; font-weight: bold; font-size: 14px;")
+            arrow.setMinimumWidth(20)
+            arrow.setAlignment(Qt.AlignCenter)
+            
+            # Créer une animation de clignotement
+            timer = QTimer()
+            
+            def toggle_arrow():
+                # Alterner la visibilité chaque 2 secondes (mais on change à chaque appel du timer)
+                if arrow.isVisible():
+                    arrow.hide()
+                else:
+                    arrow.show()
+            
+            timer.timeout.connect(toggle_arrow)
+            timer.start(1200)  # Basculer toutes les 1,2 seconde (visible + invisible)
+            
+            # Stocker la référence du timer pour éviter qu'il soit garbage collected
+            container.timer = timer
+            
+            layout.addWidget(arrow)
+
         layout.addWidget(bar)
 
         # Supprimer les marges (IMPORTANT pour l'affichage dans les cellules du tableau)
