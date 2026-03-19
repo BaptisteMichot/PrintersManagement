@@ -19,6 +19,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from database.cartridges import get_cartridges_to_order
 from utils.pdf_export import export_cartridges_to_pdf
+from utils.mail_export import send_cartridges_by_mail
+import tempfile
+import os
 
 
 class ToOrderPage(QWidget):
@@ -50,12 +53,18 @@ class ToOrderPage(QWidget):
         self.export_button.setObjectName("mainButton")
         self.export_button.clicked.connect(self.export_to_pdf)
 
+        # Bouton Send by mail
+        self.mail_button = QPushButton("Send by mail")
+        self.mail_button.setObjectName("mainButton")
+        self.mail_button.clicked.connect(self.send_by_mail)
+
         # Label du résumé
         self.summary_label = QLabel("")
         self.summary_label.setObjectName("summaryLabel")
 
         top_bar.addWidget(self.refresh_button)
         top_bar.addWidget(self.export_button)
+        top_bar.addWidget(self.mail_button)
         top_bar.addStretch()
         top_bar.addWidget(self.summary_label)
 
@@ -249,4 +258,58 @@ class ToOrderPage(QWidget):
                 self,
                 "Export error",
                 f"An error occurred while exporting: {str(e)}"
+            )
+
+    def send_by_mail(self):
+        """
+        Envoie les cartouches à commander par email via Outlook.
+        Génère un PDF temporaire et l'attache au message.
+        """
+        try:
+            # Récupérer les cartouches actuelles
+            cartridges = get_cartridges_to_order()
+            
+            if not cartridges:
+                QMessageBox.information(
+                    self,
+                    "No data to send",
+                    "There are no cartridges to order at the moment."
+                )
+                return
+            
+            # Créer un fichier temporaire pour le PDF
+            temp_dir = tempfile.gettempdir()
+            pdf_path = os.path.join(temp_dir, "cartridges_to_order.pdf")
+            
+            # Exporter en PDF
+            success = export_cartridges_to_pdf(cartridges, pdf_path)
+            
+            if success:
+                # Envoyer par mail via Outlook
+                send_success = send_cartridges_by_mail(pdf_path)
+                
+                if send_success:
+                    # Nettoyer le fichier temporaire
+                    try:
+                        os.remove(pdf_path)
+                    except:
+                        pass
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Email failed",
+                        "An error occurred while sending the email."
+                    )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "PDF generation failed",
+                    "An error occurred while generating the PDF."
+                )
+                    
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Send email error",
+                f"An error occurred while sending the email: {str(e)}"
             )
