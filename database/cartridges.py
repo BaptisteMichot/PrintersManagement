@@ -58,6 +58,7 @@ def get_cartridges_to_order():
             - inStock: Quantité actuelle en stock
             - minStock: Stock minimum requis
             - missing: Quantité manquante à commander
+            - printer_model: Modèles d'imprimantes compatibles
     """
     with connect_db() as conn:
         with conn.cursor() as cursor:
@@ -67,9 +68,13 @@ def get_cartridges_to_order():
                     c.cartsn,
                     c.color,
                     c.instock,
-                    c.minstock
+                    c.minstock,
+                    ARRAY_AGG(DISTINCT pm.model_name) AS printer_models
                 FROM cartridges c
+                LEFT JOIN cartridge_models cm ON cm.cartridge_id = c.id
+                LEFT JOIN printer_models pm ON pm.id = cm.model_id
                 WHERE c.instock < c.minstock
+                GROUP BY c.id
                 ORDER BY c.cartsn ASC
             """)
 
@@ -79,7 +84,8 @@ def get_cartridges_to_order():
                     "color": row[1],
                     "inStock": row[2],
                     "minStock": row[3],
-                    "missing": row[3] - row[2]
+                    "missing": row[3] - row[2],
+                    "printer_model": row[4]
                 }
                 for row in cursor.fetchall()
             ]

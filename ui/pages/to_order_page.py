@@ -12,11 +12,13 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QLabel,
-    QMessageBox
+    QMessageBox,
+    QFileDialog
 )
 
 from PySide6.QtCore import Qt
 from database.cartridges import get_cartridges_to_order
+from utils.pdf_export import export_cartridges_to_pdf
 
 
 class ToOrderPage(QWidget):
@@ -35,7 +37,7 @@ class ToOrderPage(QWidget):
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Barre supérieure avec bouton et résumé
+        # Barre supérieure avec boutons et résumé
         top_bar = QHBoxLayout()
 
         # Bouton Actualiser
@@ -43,11 +45,17 @@ class ToOrderPage(QWidget):
         self.refresh_button.setObjectName("mainButton")
         self.refresh_button.clicked.connect(self.refresh_cartridges_to_order)
 
+        # Bouton Export PDF
+        self.export_button = QPushButton("Download PDF")
+        self.export_button.setObjectName("mainButton")
+        self.export_button.clicked.connect(self.export_to_pdf)
+
         # Label du résumé
         self.summary_label = QLabel("")
         self.summary_label.setObjectName("summaryLabel")
 
         top_bar.addWidget(self.refresh_button)
+        top_bar.addWidget(self.export_button)
         top_bar.addStretch()
         top_bar.addWidget(self.summary_label)
 
@@ -191,4 +199,54 @@ class ToOrderPage(QWidget):
                 self,
                 "Error loading cartridges",
                 f"Failed to load cartridges to order: {str(e)}"
+            )
+
+    def export_to_pdf(self):
+        """
+        Exporte les cartouches à commander en fichier PDF.
+        Affiche un dialogue pour choisir le lieu de sauvegarde.
+        """
+        try:
+            # Récupérer les cartouches actuelles
+            cartridges = get_cartridges_to_order()
+            
+            if not cartridges:
+                QMessageBox.information(
+                    self,
+                    "No data to export",
+                    "There are no cartridges to order at the moment."
+                )
+                return
+            
+            # Ouvrir un dialogue de sauvegarde
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export cartridges to PDF",
+                "cartridges_to_order.pdf",
+                "PDF Files (*.pdf)"
+            )
+            
+            # Si l'utilisateur a sélectionné un fichier
+            if file_path:
+                # Exporter en PDF
+                success = export_cartridges_to_pdf(cartridges, file_path)
+                
+                if success:
+                    QMessageBox.information(
+                        self,
+                        "Export successful",
+                        f"Cartridges have been exported to:\n{file_path}"
+                    )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Export failed",
+                        "An error occurred while exporting the cartridges to PDF."
+                    )
+                    
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export error",
+                f"An error occurred while exporting: {str(e)}"
             )
