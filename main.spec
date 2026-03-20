@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=r'c:\Users\bebamic1\OneDrive - ABB\Documents\PrintersABB\assets\app.ico',
 )
