@@ -6,9 +6,18 @@
 import psycopg2
 from dotenv import load_dotenv
 import os
+import sys
+
+# Trouver le chemin du .env (fonctionne avec PyInstaller et en développement)
+if getattr(sys, 'frozen', False):
+    # Quand packagé avec PyInstaller
+    env_path = os.path.join(sys._MEIPASS, '.env')
+else:
+    # En développement
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
 
 # Charger les variables d'environnement depuis .env
-load_dotenv()
+load_dotenv(env_path)
 
 def connect_db():
     """
