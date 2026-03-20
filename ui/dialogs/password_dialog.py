@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 
 # Charger les variables d'environnement
@@ -29,6 +29,9 @@ class PasswordDialog(QDialog):
 
         # Charger le mot de passe depuis les variables d'environnement
         self.PASSWORD = os.getenv("APP_PASSWORD", "printer")
+        
+        # Flag pour empêcher les vérifications multiples rapides
+        self.is_verifying = False
 
         self.setWindowTitle("Authentication Required")
         self.setModal(True)
@@ -45,7 +48,6 @@ class PasswordDialog(QDialog):
         # Champ de mot de passe
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-        self.password_input.returnPressed.connect(self.verify_password)
         layout.addWidget(self.password_input)
 
         # Boutons
@@ -59,6 +61,9 @@ class PasswordDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         button_layout.addWidget(btn_cancel)
 
+        # Connecter returnPressed au clic du bouton OK (et non directement à verify_password)
+        self.password_input.returnPressed.connect(btn_ok.click)
+
         layout.addLayout(button_layout)
 
         # Focus sur le champ de mot de passe
@@ -66,13 +71,24 @@ class PasswordDialog(QDialog):
 
     def verify_password(self):
         """Vérifier le mot de passe saisi."""
-        if self.password_input.text() == self.PASSWORD:
-            self.accept()
-        else:
-            QMessageBox.warning(
-                self,
-                "Authentication Failed",
-                "Incorrect password. Please try again."
-            )
-            self.password_input.clear()
-            self.password_input.setFocus()
+        # Empêcher les appels multiples rapides
+        if self.is_verifying:
+            return
+        
+        self.is_verifying = True
+        
+        try:
+            if self.password_input.text() == self.PASSWORD:
+                self.accept()
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Authentication Failed",
+                    "Incorrect password. Please try again."
+                )
+                self.password_input.clear()
+                self.password_input.setFocus()
+        finally:
+            # Utiliser QTimer pour remettre le flag après un délai
+            # Cela évite les problèmes de timing
+            QTimer.singleShot(100, lambda: setattr(self, 'is_verifying', False))

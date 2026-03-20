@@ -274,6 +274,30 @@ class PrintersPage(QWidget):
 
         return container
 
+    def create_offline_label(self):
+        """
+        Crée un label pour afficher le statut 'Printer offline or inaccessible'.
+        
+        Returns:
+            QWidget: Widget contenant le label "Printer offline or inaccessible"
+        """
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        
+        label = QLabel("Printer offline or inaccessible")
+        label.setStyleSheet("""
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 12px;
+        """)
+        label.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        return container
+
     def scan(self):
         """
         Lancer un scan des imprimantes sur le réseau.
@@ -338,6 +362,7 @@ class PrintersPage(QWidget):
             # Extraire les informations
             info = data.get("info", {})
             consumables = data.get("consumables", [])
+            is_offline = data.get("is_offline", False)
 
             # Utiliser les données de la base ou celles scannées
             name = data.get("db_name") or info.get("name") or ""
@@ -391,11 +416,20 @@ class PrintersPage(QWidget):
             self.table.setItem(row, 2, name_item)
             self.table.setItem(row, 3, user_item)
 
-            # Ajouter les barres de progression pour les niveaux d'encre
-            self.table.setCellWidget(row, 4, self.create_bar(levels["Black"], "#000000"))
-            self.table.setCellWidget(row, 5, self.create_bar(levels["Cyan"], "#00aeef"))
-            self.table.setCellWidget(row, 6, self.create_bar(levels["Magenta"], "#ec008c"))
-            self.table.setCellWidget(row, 7, self.create_bar(levels["Yellow"], "#ffd100"))
+            # Ajouter les barres de progression ou le message offline selon le statut
+            if is_offline:
+                # Afficher "Printer offline" dans la première colonne d'encre uniquement
+                self.table.setCellWidget(row, 4, self.create_offline_label())
+                # Les autres colonnes restent vides
+                self.table.setCellWidget(row, 5, QWidget())
+                self.table.setCellWidget(row, 6, QWidget())
+                self.table.setCellWidget(row, 7, QWidget())
+            else:
+                # Afficher les barres de progression normales
+                self.table.setCellWidget(row, 4, self.create_bar(levels["Black"], "#000000"))
+                self.table.setCellWidget(row, 5, self.create_bar(levels["Cyan"], "#00aeef"))
+                self.table.setCellWidget(row, 6, self.create_bar(levels["Magenta"], "#ec008c"))
+                self.table.setCellWidget(row, 7, self.create_bar(levels["Yellow"], "#ffd100"))
 
             # Définir la hauteur de la ligne
             self.table.setRowHeight(row, 34)

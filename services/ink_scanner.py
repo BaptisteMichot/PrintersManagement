@@ -177,7 +177,11 @@ class PrinterScanner:
             return self.generic_parser.parse(html)
 
     def fetch_printer_data(self, printer):
-        """Récupérer les données de consommables d'une imprimante spécifique."""
+        """Récupérer les données de consommables d'une imprimante spécifique.
+        
+        Returns:
+            tuple: (ip, info, consumables, is_offline) où is_offline indique si l'imprimante est hors ligne
+        """
         ip = printer["ip"]
         name = printer["name"]
         owner = printer["owner"]
@@ -191,13 +195,13 @@ class PrinterScanner:
             if "M404" in ptype or "4002" in ptype:
                 consumables = self.m404_parser.parse_xml(ip)
                 if consumables:
-                    return ip, info, consumables
+                    return ip, info, consumables, False
                 html = self.get_printer_page(ip)
                 if html:
                     consumables = self.m404_parser.parse(html)
                     if consumables:
-                        return ip, info, consumables
-                return ip, info, []
+                        return ip, info, consumables, False
+                return ip, info, [], True
 
             # HP M521: URL spécifique
             if "M521" in ptype:
@@ -205,8 +209,8 @@ class PrinterScanner:
                 if html:
                     consumables = self.m521_parser.parse(html)
                     if consumables:
-                        return ip, info, consumables
-                return ip, info, []
+                        return ip, info, consumables, False
+                return ip, info, [], True
 
             # HP M506: URL spécifique
             if "M506" in ptype:
@@ -214,8 +218,8 @@ class PrinterScanner:
                 if html:
                     consumables = self.m506_parser.parse(html)
                     if consumables:
-                        return ip, info, consumables
-                return ip, info, []
+                        return ip, info, consumables, False
+                return ip, info, [], True
 
             # HP P3015DN: HTTP uniquement
             if "3015" in ptype:
@@ -223,19 +227,19 @@ class PrinterScanner:
                 if html:
                     consumables = self.p3015_parser.parse(html)
                     if consumables:
-                        return ip, info, consumables
-                return ip, info, []
+                        return ip, info, consumables, False
+                return ip, info, [], True
 
             # Autres modèles: URLs génériques + parseur générique comme fallback
             html = self.get_printer_page(ip)
             if html is None:
-                return ip, info, []
+                return ip, info, [], True
             consumables = self.parse_by_type(html, ptype)
-            return ip, info, consumables
+            return ip, info, consumables, False
         
         except Exception as e:
             print(f"Error scanning printer {ip} ({model}): {e}")
-            return ip, info, []
+            return ip, info, [], True
 
     def scan_printers(self):
         """Scanner parallèlement toutes les imprimantes de la base de données.
@@ -255,10 +259,11 @@ class PrinterScanner:
             }
             for future in futures:
                 printer = futures[future]
-                ip, info, consumables = future.result()
+                ip, info, consumables, is_offline = future.result()
                 results[ip] = {
                     "info": info,
                     "consumables": consumables,
+                    "is_offline": is_offline,
                     "db_name": printer["name"],
                     "db_owner": printer["owner"],
                     "db_model": printer["model"]
