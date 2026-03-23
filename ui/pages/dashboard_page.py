@@ -31,6 +31,7 @@ class DashboardPage(QWidget):
     navigate_to_printers = Signal()
     navigate_to_cartridges = Signal()
     navigate_to_to_order = Signal()
+    navigate_to_order = Signal()
 
     def __init__(self):
         super().__init__()
@@ -119,6 +120,15 @@ class DashboardPage(QWidget):
             "#006064"
         )
         cards_layout.addWidget(to_order_card)
+
+        # Carte Commandes
+        order_card = self.create_card(
+            "Orders",
+            "Create and manage purchase orders for cartridge supplies.",
+            self.navigate_to_order.emit,
+            "#006064"
+        )
+        cards_layout.addWidget(order_card)
 
         main_layout.addLayout(cards_layout)
 

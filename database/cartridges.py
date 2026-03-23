@@ -5,6 +5,50 @@
 
 from database.connection import connect_db
 
+def get_all_cartridges():
+    """
+    Récupère la liste complète des cartouches avec leur ID pour la sélection dans les formulaires.
+    
+    Returns:
+        list: Liste de dictionnaires contenant:
+            - id: ID de la cartouche
+            - name: Numéro de série de la cartouche
+            - color: Couleur de la cartouche
+            - inStock: Quantité en stock
+            - minStock: Stock minimum
+            - printer_model: Modèles d'imprimantes compatibles
+    """
+    with connect_db() as conn:
+        with conn.cursor() as cursor:
+
+            cursor.execute("""
+                SELECT 
+                    c.id,
+                    c.cartsn,
+                    c.color,
+                    c.instock,
+                    c.minstock,
+                    ARRAY_AGG(DISTINCT pm.model_name) AS printer_models
+                FROM cartridges c
+                LEFT JOIN cartridge_models cm ON cm.cartridge_id = c.id
+                LEFT JOIN printer_models pm ON pm.id = cm.model_id
+                GROUP BY c.id
+                ORDER BY c.cartsn ASC
+            """)
+
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "color": row[2],
+                    "inStock": row[3],
+                    "minStock": row[4],
+                    "printer_model": row[5]
+                }
+                for row in cursor.fetchall()
+            ]
+
+
 def get_cartridges():
     """
     Récupère la liste complète des cartouches avec leurs propriétés et modèles d'imprimantes compatibles.

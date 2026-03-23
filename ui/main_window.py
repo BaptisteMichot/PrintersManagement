@@ -7,6 +7,7 @@ from ui.pages.printers_page import PrintersPage
 from ui.pages.cartridges_page import CartridgesPage
 from ui.pages.dashboard_page import DashboardPage
 from ui.pages.to_order_page import ToOrderPage
+from ui.pages.order_page import OrderPage
 
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -48,9 +49,10 @@ class MainWindow(QMainWindow):
         btn_printers = QPushButton("Printers")
         btn_cartridges = QPushButton("Cartridges")
         btn_to_order = QPushButton("To order")
+        btn_order = QPushButton("Orders")
 
         # Appliquer le style à tous les boutons du menu
-        for btn in [btn_dashboard, btn_printers, btn_cartridges, btn_to_order]:
+        for btn in [btn_dashboard, btn_printers, btn_cartridges, btn_to_order, btn_order]:
             btn.setObjectName("menuButton")
 
         # Ajouter les éléments au menu
@@ -60,6 +62,7 @@ class MainWindow(QMainWindow):
         menu_layout.addWidget(btn_printers)
         menu_layout.addWidget(btn_cartridges)
         menu_layout.addWidget(btn_to_order)
+        menu_layout.addWidget(btn_order)
         menu_layout.addStretch()
 
         # Créer le widget pour afficher les pages (pages empilées)
@@ -70,23 +73,27 @@ class MainWindow(QMainWindow):
         page_printers = PrintersPage()
         page_cartridges = CartridgesPage()
         page_to_order = ToOrderPage()
+        page_order = OrderPage()
 
         # Ajouter les pages au widget empilé
         self.pages.addWidget(page_dashboard)
         self.pages.addWidget(page_printers)
         self.pages.addWidget(page_cartridges)
         self.pages.addWidget(page_to_order)
+        self.pages.addWidget(page_order)
 
         # Connecter les boutons à la navigation entre les pages
         btn_dashboard.clicked.connect(lambda: self.pages.setCurrentIndex(0))
         btn_printers.clicked.connect(lambda: self.pages.setCurrentIndex(1))
         btn_cartridges.clicked.connect(lambda: self.pages.setCurrentIndex(2))
         btn_to_order.clicked.connect(lambda: self.pages.setCurrentIndex(3))
+        btn_order.clicked.connect(lambda: self.pages.setCurrentIndex(4))
 
         # Connecter les signaux du tableau de bord pour la navigation
         page_dashboard.navigate_to_printers.connect(lambda: self.pages.setCurrentIndex(1))
         page_dashboard.navigate_to_cartridges.connect(lambda: self.pages.setCurrentIndex(2))
         page_dashboard.navigate_to_to_order.connect(lambda: self.pages.setCurrentIndex(3))
+        page_dashboard.navigate_to_order.connect(lambda: self.pages.setCurrentIndex(4))
 
         # Appliquer le style aux boutons du tableau de bord
         page_dashboard.set_stylesheet_for_buttons()
