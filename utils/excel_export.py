@@ -31,14 +31,17 @@ def export_order_to_excel(order_data, filepath):
         wb = load_workbook(template_path)
         ws = wb.active
         
+        # Déverrouiller la feuille au cas où elle serait protégée
+        ws.protection.sheet = False
+        
         # Remplir seulement les informations variables
         ws['C12'] = order_data.get('po_number', 'N/A')
         
         # Date
         ws['C15'] = order_data.get('date', datetime.now().strftime('%d/%m/%Y'))
         
-        # Effacer les anciennes lignes (gardez seulement les 4 premières données du modèle)
-        for row_idx in range(23, 35):
+        # Effacer les anciennes lignes de données (lignes 23-32, pas la ligne 33 qui est le Total)
+        for row_idx in range(23, 33):
             ws[f'A{row_idx}'].value = None
             ws[f'B{row_idx}'].value = None
             ws[f'H{row_idx}'].value = None
@@ -68,17 +71,29 @@ def export_order_to_excel(order_data, filepath):
             ws[f'I{current_row}'] = f'=IF(H{current_row}="","",H{current_row}*A{current_row})'
             
             # Préserver l'alignement vertical du modèle tout en appliquant wrap_text
-            cell_b = ws[f'B{current_row}']
-            existing_alignment = cell_b.alignment
-            cell_b.alignment = Alignment(
-                wrap_text=True, 
-                vertical=existing_alignment.vertical if existing_alignment else 'center',
-                horizontal=existing_alignment.horizontal if existing_alignment else 'left'
-            )
+            try:
+                cell_b = ws[f'B{current_row}']
+                existing_alignment = cell_b.alignment
+                cell_b.alignment = Alignment(
+                    wrap_text=True, 
+                    vertical=existing_alignment.vertical if existing_alignment else 'center',
+                    horizontal=existing_alignment.horizontal if existing_alignment else 'left'
+                )
+            except Exception:
+                # Si la modification d'alignement échoue, ignorer
+                pass
+            
             ws.row_dimensions[current_row].height = 30
             
             total_amount += total
             current_row += 1
+        
+        # Remplir la ligne Total (ligne 33) avec la formule SUM
+        try:
+            total_cell = ws['I33']
+            total_cell.value = f'=SUM(I23:I32)'
+        except Exception as e:
+            print(f"Cannot write to total cell: {str(e)}")
         
         # Sauvegarder
         wb.save(filepath)

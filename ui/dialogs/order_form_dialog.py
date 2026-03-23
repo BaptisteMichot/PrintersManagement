@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate, QRegularExpression
 from PySide6.QtGui import QFont, QRegularExpressionValidator
 from utils.excel_export import export_order_to_excel
+from utils.pdf_export import convert_excel_to_pdf
+import tempfile
+import os
 
 
 class OrderLineWidget(QWidget):
@@ -336,7 +339,7 @@ class OrderFormDialog(QDialog):
         # Boutons d'action
         button_layout = QHBoxLayout()
         
-        export_button = QPushButton("Generate Excel")
+        export_button = QPushButton("Download PDF")
         export_button.setObjectName("mainButton")
         export_button.clicked.connect(self.generate_excel)
         
@@ -527,21 +530,43 @@ class OrderFormDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Please add at least one complete order line with all fields filled.")
             return
 
-        # Demander le chemin de sauvegarde
-        file_path, _ = QFileDialog.getSaveFileName(
+        # Demander le dossier de sauvegarde
+        folder_path = QFileDialog.getExistingDirectory(
             self,
-            "Save Order Excel",
-            f"Order_{self.po_number_input.text()}.xlsx",
-            "Excel Files (*.xlsx)"
+            "Select folder to save Order files",
+            ""
         )
 
-        if not file_path:
+        if not folder_path:
             return
 
         try:
             order_data = self.get_order_data()
-            export_order_to_excel(order_data, file_path)
-            QMessageBox.information(self, "Success", f"Order Excel generated successfully!\n\n{file_path}")
+            po_number = self.po_number_input.text()
+            
+            # Créer un fichier Excel temporaire pour la conversion
+            temp_dir = tempfile.gettempdir()
+            temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
+            
+            # Générer l'Excel temporaire
+            export_order_to_excel(order_data, temp_excel_path)
+            
+            # Convertir l'Excel temporaire en PDF
+            pdf_path = os.path.join(folder_path, f"Order_{po_number}.pdf")
+            convert_excel_to_pdf(temp_excel_path, pdf_path)
+            
+            # Supprimer le fichier Excel temporaire
+            try:
+                os.remove(temp_excel_path)
+            except Exception:
+                # Si la suppression échoue, ignorer (fichier temporaire)
+                pass
+            
+            QMessageBox.information(
+                self, 
+                "Success", 
+                f"PDF generated successfully!\n\n{pdf_path}"
+            )
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error generating Excel:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Error generating PDF:\n{str(e)}")

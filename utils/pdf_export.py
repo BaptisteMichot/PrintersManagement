@@ -10,6 +10,47 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+import os
+
+
+def convert_excel_to_pdf(excel_path, pdf_path):
+    """
+    Convertit un fichier Excel en PDF en utilisant Excel COM.
+    Garantit une ressemblance exacte entre le fichier Excel et le PDF.
+    
+    Args:
+        excel_path (str): Chemin complet vers le fichier Excel à convertir
+        pdf_path (str): Chemin complet où sauvegarder le fichier PDF
+        
+    Returns:
+        bool: True si la conversion a réussi, False sinon
+    """
+    try:
+        import win32com.client
+        
+        # Initialiser Excel
+        excel_app = win32com.client.Dispatch('Excel.Application')
+        excel_app.Visible = False
+        excel_app.DisplayAlerts = False
+        
+        # Ouvrir le classeur
+        workbook = excel_app.Workbooks.Open(os.path.abspath(excel_path))
+        
+        try:
+            # Convertir en PDF (0 = xlTypePDF)
+            workbook.ExportAsFixedFormat(0, os.path.abspath(pdf_path))
+            return True
+        finally:
+            # Fermer le classeur sans sauvegarder
+            workbook.Close(False)
+            excel_app.Quit()
+            
+    except ImportError:
+        print("Error: win32com.client not available. Please install pywin32.")
+        return False
+    except Exception as e:
+        print(f"Error converting Excel to PDF: {str(e)}")
+        raise
 
 
 def _format_printer_models(printer_models):
