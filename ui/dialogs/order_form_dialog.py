@@ -15,13 +15,15 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
     QWidget,
-    QCheckBox
+    QCheckBox,
+    QApplication
 )
 
 from PySide6.QtCore import Qt, QDate, QRegularExpression
 from PySide6.QtGui import QFont, QRegularExpressionValidator
 from utils.excel_export import export_order_to_excel
 from utils.pdf_export import convert_excel_to_pdf
+from database.orders import save_order
 import tempfile
 import os
 
@@ -150,9 +152,23 @@ class OrderFormDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Create New Order")
-        self.setGeometry(100, 100, 1100, 700)
+        self.resize(1100, 700)
         self.order_lines = []
         self.init_ui()
+        
+        # Centrer le dialog sur l'écran du parent
+        if parent and parent.isVisible():
+            # Obtenir l'écran contenant la fenêtre parente
+            parent_screen = QApplication.screenAt(parent.mapToGlobal(parent.rect().center()))
+            if parent_screen:
+                screen_geometry = parent_screen.geometry()
+                dialog_width = self.width()
+                dialog_height = self.height()
+                
+                center_x = screen_geometry.left() + (screen_geometry.width() - dialog_width) // 2
+                center_y = screen_geometry.top() + (screen_geometry.height() - dialog_height) // 2
+                
+                self.move(int(center_x), int(center_y))
 
     def init_ui(self):
         """Initialiser les composants du dialog"""
@@ -220,11 +236,21 @@ class OrderFormDialog(QDialog):
         headers_layout.setSpacing(10)
         headers_layout.setContentsMargins(0, 0, 0, 0)
         
+        # Checkbox spacer (même taille que le checkbox dans OrderLineWidget)
+        checkbox_spacer = QWidget()
+        checkbox_spacer.setMinimumWidth(30)
+        checkbox_spacer.setMaximumWidth(30)
+        headers_layout.addWidget(checkbox_spacer, 0)
+        
+        # Cartridge Type
         headers_layout.addWidget(QLabel("Cartridge Type"), 1)
+        
+        # Description
         headers_layout.addWidget(QLabel("Description"), 2)
+        
         headers_layout.addStretch()
         
-        # Qty header - Fixed width
+        # Qty header - Same container as OrderLineWidget
         qty_header = QWidget()
         qty_header.setMinimumWidth(100)
         qty_header.setMaximumWidth(100)
@@ -232,13 +258,10 @@ class OrderFormDialog(QDialog):
         qty_header_layout.setContentsMargins(0, 0, 0, 0)
         qty_header_layout.setSpacing(10)
         qty_header_layout.addWidget(QLabel("Qty:"))
-        qty_spacer = QWidget()
-        qty_spacer.setMaximumWidth(40)
-        qty_header_layout.addWidget(qty_spacer)
         qty_header.setLayout(qty_header_layout)
         headers_layout.addWidget(qty_header, 0)
         
-        # Price EUR header - Fixed width
+        # Price header - Same container as OrderLineWidget
         price_header = QWidget()
         price_header.setMinimumWidth(140)
         price_header.setMaximumWidth(140)
@@ -246,13 +269,10 @@ class OrderFormDialog(QDialog):
         price_header_layout.setContentsMargins(0, 0, 0, 0)
         price_header_layout.setSpacing(10)
         price_header_layout.addWidget(QLabel("Price:"))
-        price_spacer = QWidget()
-        price_spacer.setMaximumWidth(70)
-        price_header_layout.addWidget(price_spacer)
         price_header.setLayout(price_header_layout)
         headers_layout.addWidget(price_header, 0)
         
-        # Total header - Fixed width
+        # Total header - Same container as OrderLineWidget
         total_header = QWidget()
         total_header.setMinimumWidth(110)
         total_header.setMaximumWidth(110)
@@ -260,9 +280,6 @@ class OrderFormDialog(QDialog):
         total_header_layout.setContentsMargins(0, 0, 0, 0)
         total_header_layout.setSpacing(10)
         total_header_layout.addWidget(QLabel("Total:"))
-        total_spacer = QWidget()
-        total_spacer.setMaximumWidth(50)
-        total_header_layout.addWidget(total_spacer)
         total_header.setLayout(total_header_layout)
         headers_layout.addWidget(total_header, 0)
         
@@ -562,11 +579,26 @@ class OrderFormDialog(QDialog):
                 # Si la suppression échoue, ignorer (fichier temporaire)
                 pass
             
-            QMessageBox.information(
-                self, 
-                "Success", 
-                f"PDF generated successfully!\n\n{pdf_path}"
+            # Sauvegarder la commande en base de données
+            order_id = save_order(
+                po_number=po_number,
+                order_date=order_data['date'],
+                total=order_data['total'],
+                order_lines=order_data['lines']
             )
+            
+            if order_id:
+                QMessageBox.information(
+                    self, 
+                    "Success", 
+                    f"PDF generated successfully!\n\nOrder saved to database (ID: {order_id})\n\n{pdf_path}"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Partial Success",
+                    f"PDF generated successfully, but order could not be saved to database.\n\n{pdf_path}"
+                )
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error generating PDF:\n{str(e)}")

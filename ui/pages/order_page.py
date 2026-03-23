@@ -8,12 +8,105 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
-    QLabel
+    QLabel,
+    QScrollArea,
+    QMessageBox,
+    QFrame
 )
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from ui.dialogs.order_form_dialog import OrderFormDialog
+from database.orders import get_recent_orders, get_order_details, delete_order
+
+
+class OrderCardWidget(QFrame):
+    """Widget carte pour afficher une commande"""
+    
+    def __init__(self, order, view_callback, delete_callback):
+        super().__init__()
+        self.order = order
+        self.view_callback = view_callback
+        self.delete_callback = delete_callback
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialiser la carte de commande"""
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        self.setStyleSheet("""
+            QFrame {
+                border: 1px solid #dfe6e9;
+                border-radius: 8px;
+                background-color: white;
+                padding: 15px;
+                margin: 5px 0px;
+            }
+            QFrame:hover {
+                border: 1px solid #0984e3;
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        
+        # En-tête : Purchase Order Number et Date
+        header_layout = QHBoxLayout()
+        
+        po_label = QLabel(f"Purchase Order Number: <b>{self.order['po_number']}</b>")
+        po_label.setFont(QFont("Arial", 11))
+        header_layout.addWidget(po_label)
+        
+        date_label = QLabel(self.order['order_date'])
+        date_label.setFont(QFont("Arial", 11))
+        date_label.setAlignment(Qt.AlignLeft)
+        header_layout.addWidget(date_label)
+        
+        layout.addLayout(header_layout)
+        
+        # Infos : Total et Items count
+        info_layout = QHBoxLayout()
+        info_layout.setSpacing(20)
+        
+        total_label = QLabel(f"<b>Total:</b> {self.order['total']:.2f} EUR")
+        total_label.setStyleSheet("color: #0984e3; font-weight: bold;")
+        info_layout.addWidget(total_label)
+        
+        items_label = QLabel(f"<b>Items:</b> {self.order['item_count']}")
+        items_label.setStyleSheet("color: #636e72;")
+        info_layout.addWidget(items_label)
+        
+        info_layout.addStretch()
+        layout.addLayout(info_layout)
+        
+        # Boutons d'action
+        actions_layout = QHBoxLayout()
+        actions_layout.setSpacing(10)
+        
+        view_button = QPushButton("View Details")
+        view_button.setMinimumWidth(120)
+        view_button.setObjectName("mainButton")
+        view_button.clicked.connect(self.on_view_clicked)
+        actions_layout.addWidget(view_button)
+        
+        delete_button = QPushButton("Delete Order")
+        delete_button.setMinimumWidth(120)
+        delete_button.setObjectName("dangerButton")
+        delete_button.clicked.connect(self.on_delete_clicked)
+        actions_layout.addWidget(delete_button)
+        
+        actions_layout.addStretch()
+        layout.addLayout(actions_layout)
+        
+        self.setLayout(layout)
+    
+    def on_view_clicked(self):
+        """Callback pour le bouton View"""
+        self.view_callback(self.order['id'])
+    
+    def on_delete_clicked(self):
+        """Callback pour le bouton Delete"""
+        self.delete_callback(self.order['id'], self.order['po_number'])
 
 
 class OrderPage(QWidget):
@@ -25,6 +118,7 @@ class OrderPage(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()
+        self.load_recent_orders()
 
     def init_ui(self):
         """Initialiser les composants de la page"""
@@ -32,7 +126,7 @@ class OrderPage(QWidget):
         layout.setSpacing(20)
         layout.setContentsMargins(40, 40, 40, 40)
 
-        # Barre supérieure avec bouton
+        # Barre supérieure avec boutons
         top_bar = QHBoxLayout()
 
         # Bouton Créer une nouvelle commande
@@ -40,25 +134,43 @@ class OrderPage(QWidget):
         new_order_button.setObjectName("mainButton")
         new_order_button.clicked.connect(self.create_new_order)
         top_bar.addWidget(new_order_button)
+        
         top_bar.addStretch()
 
         layout.addLayout(top_bar)
 
-        # Contenu principal
-        content_layout = QVBoxLayout()
-        content_layout.setSpacing(20)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        # Section Commandes récentes
+        orders_label = QLabel("Recent Orders:")
+        orders_label_font = QFont()
+        orders_label_font.setBold(True)
+        orders_label_font.setPointSize(12)
+        orders_label.setFont(orders_label_font)
+        layout.addWidget(orders_label)
 
-        # Espace pour actions futures
-        actions_label = QLabel("Recent Orders:")
-        actions_label_font = QFont()
-        actions_label_font.setBold(True)
-        actions_label.setFont(actions_label_font)
-
-        content_layout.addWidget(actions_label)
+        # ScrollArea pour les cartes
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #f9f9f9;
+            }
+        """)
         
-        no_orders_label = QLabel("No recent orders yet. Create your first order!")
-        no_orders_label.setStyleSheet("""
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout()
+        self.scroll_layout.setSpacing(5)
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_layout.addStretch()
+        
+        self.scroll_widget.setLayout(self.scroll_layout)
+        scroll_area.setWidget(self.scroll_widget)
+        
+        layout.addWidget(scroll_area)
+
+        # Placeholder pour absence de commandes
+        self.no_orders_label = QLabel("No recent orders yet. Create your first order!")
+        self.no_orders_label.setStyleSheet("""
         QLabel {
             color: #636e72;
             font-size: 11px;
@@ -68,33 +180,131 @@ class OrderPage(QWidget):
             border: 1px dashed #bdc3c7;
         }
         """)
-        content_layout.addWidget(no_orders_label)
-
-        layout.addLayout(content_layout)
-        layout.addStretch()
+        self.no_orders_label.setVisible(False)
+        layout.addWidget(self.no_orders_label)
 
         # Appliquer les styles à la page
         self.setStyleSheet("""
         QPushButton#mainButton {
             background-color: #0984e3;
             color: white;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 6px;
             font-weight: bold;
+            border: none;
+            min-width: 100px;
         }
 
         QPushButton#mainButton:hover {
             background-color: #74b9ff;
         }
 
+        QPushButton#mainButton:pressed {
+            background-color: #0670c4;
+        }
+
         QPushButton#mainButton:disabled {
             background-color: #b2bec3;
+        }
+
+        QPushButton#dangerButton {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            border: none;
+            min-width: 100px;
+        }
+
+        QPushButton#dangerButton:hover {
+            background-color: #ec7063;
+        }
+
+        QPushButton#dangerButton:pressed {
+            background-color: #c0392b;
         }
         """)
 
         self.setLayout(layout)
 
+    def load_recent_orders(self):
+        """Charger et afficher les commandes récentes"""
+        orders = get_recent_orders()
+        
+        # Nettoyer le layout
+        while self.scroll_layout.count() > 1:  # Garder le stretch
+            item = self.scroll_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+        
+        if not orders:
+            self.scroll_widget.setVisible(False)
+            self.no_orders_label.setVisible(True)
+            return
+        
+        self.scroll_widget.setVisible(True)
+        self.no_orders_label.setVisible(False)
+        
+        # Ajouter les cartes de commandes
+        for order in orders:
+            card = OrderCardWidget(
+                order,
+                view_callback=self.view_order_details,
+                delete_callback=self.delete_order_action
+            )
+            self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, card)
+
     def create_new_order(self):
         """Ouvrir le dialog pour créer une nouvelle commande"""
         dialog = OrderFormDialog(self)
+        if dialog.exec():
+            # Rafraîchir la liste après la création
+            self.load_recent_orders()
+
+    def view_order_details(self, order_id):
+        """Afficher les détails d'une commande"""
+        order = get_order_details(order_id)
+        if not order:
+            QMessageBox.warning(self, "Error", "Could not load order details.")
+            return
+        
+        # Créer un message détaillé avec les informations de commande
+        details = f"""
+        <b>Purchase Order Number:</b> {order['po_number']}<br>
+        <b>Date:</b> {order['order_date']}<br>
+        <b>Total:</b> {order['total']:.2f} EUR<br>
+        <br>
+        <b>Order Items:</b><br>
+        """
+        
+        for item in order['items']:
+            details += f"""
+            • {item['cartridge_type']} - {item['description']}<br>
+            &nbsp;&nbsp;Qty: {item['quantity']}, Price: {item['unit_price']:.2f} EUR, Total: {item['total']:.2f} EUR<br>
+            """
+        
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(f"Order Details - {order['po_number']}")
+        dialog.setText("Order Information")
+        dialog.setInformativeText(details)
+        dialog.setTextFormat(Qt.RichText)
+        dialog.setStandardButtons(QMessageBox.Ok)
         dialog.exec()
+
+    def delete_order_action(self, order_id, po_number):
+        """Supprimer une commande après confirmation"""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete order {po_number}?\n\nThis action cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            if delete_order(order_id):
+                QMessageBox.information(self, "Success", "Order deleted successfully.")
+                self.load_recent_orders()
+            else:
+                QMessageBox.critical(self, "Error", "Failed to delete order.")
