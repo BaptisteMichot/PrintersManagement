@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from database.printers import add_printer_model, delete_printer_model
-from database.cartridges import add_cartridge, delete_cartridge, link_cartridge_to_model, get_cartridges
+from database.cartridges import add_cartridge, link_cartridge_to_model, get_cartridges
 from ui.dialogs.add_cartridge_dialog import AddCartridgeDialog
 
 

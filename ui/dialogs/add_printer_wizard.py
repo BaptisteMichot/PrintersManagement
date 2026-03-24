@@ -14,13 +14,11 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QComboBox,
     QTableWidget,
-    QTableWidgetItem,
     QStackedWidget,
     QMessageBox,
     QInputDialog,
     QHeaderView
 )
-from PySide6.QtCore import Qt
 from database.printers import get_printers, get_printer_models, add_printer_model, delete_printer_model
 from database.cartridges import get_cartridges, add_cartridge, delete_cartridge, link_cartridge_to_model
 from ui.dialogs.add_cartridge_dialog import AddCartridgeDialog

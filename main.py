@@ -14,7 +14,6 @@ from database.connection import connect_db
 from ui.main_window import MainWindow
 from ui.dialogs.password_dialog import PasswordDialog
 from PySide6.QtWidgets import QApplication, QDialog
-from PySide6.QtGui import QFont
 
 
 def main():

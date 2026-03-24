@@ -20,8 +20,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox
 )
 
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QColor
+from PySide6.QtCore import Qt
 from database.cartridges import get_cartridges, update_cartridge_stock
 
 

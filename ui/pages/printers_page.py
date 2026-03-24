@@ -18,10 +18,8 @@ from PySide6.QtWidgets import (
     QLabel
 )
 
-from PySide6.QtCore import Qt, QPropertyAnimation, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QTimer
 from ui.workers import ScanWorker, ScanProgressDialog
-from ui.dialogs.add_printer_dialog import AddPrinterDialog
 from ui.dialogs.printer_cartridges_dialog import PrinterCartridgesDialog
 from ui.dialogs.add_printer_wizard import AddPrinterWizard
 from database.printers import delete_printer

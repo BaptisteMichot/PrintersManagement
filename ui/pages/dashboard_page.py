@@ -3,10 +3,6 @@
 # Affiche la page d'accueil avec navigation vers les autres pages
 # ==========================================
 
-import sys
-import os
-from pathlib import Path
-
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,

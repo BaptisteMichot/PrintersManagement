@@ -3,7 +3,6 @@
 # ==========================================
 
 import re
-import requests
 from services.parsers.base import BasePrinterParser
 
 

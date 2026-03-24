@@ -4,8 +4,7 @@
 # ==========================================
 
 from openpyxl import load_workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment
 from datetime import datetime
 import os
 
