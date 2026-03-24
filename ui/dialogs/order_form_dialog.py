@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QWidget,
     QCheckBox,
-    QApplication
+    QApplication,
+    QComboBox
 )
 
 from PySide6.QtCore import Qt, QDate, QRegularExpression
@@ -24,6 +25,7 @@ from PySide6.QtGui import QFont, QRegularExpressionValidator
 from utils.excel_export import export_order_to_excel
 from utils.pdf_export import convert_excel_to_pdf
 from database.orders import save_order
+from database.cartridges import get_all_cartridges
 import tempfile
 import os
 
@@ -42,10 +44,22 @@ class OrderLineWidget(QWidget):
         self.checkbox.setMaximumWidth(30)
         layout.addWidget(self.checkbox, 0)
         
-        # Cartridge Type
-        self.cartridge_type_input = QLineEdit()
-        self.cartridge_type_input.setPlaceholderText("e.g., HP W1490X")
-        self.cartridge_type_input.textChanged.connect(self.on_value_changed)
+        # Cartridge Type - ComboBox avec liste des cartouches disponibles
+        self.cartridge_type_input = QComboBox()
+        self.cartridge_type_input.setPlaceholderText("Select a cartridge")
+        
+        # Charger les cartouches depuis la base de données
+        try:
+            cartridges = get_all_cartridges()
+            self.cartridges_data = {cart['name']: cart for cart in cartridges}
+            
+            for cartridge in cartridges:
+                self.cartridge_type_input.addItem(cartridge['name'], cartridge['id'])
+        except Exception:
+            # En cas d'erreur de connexion, la combobox reste vide
+            self.cartridges_data = {}
+        
+        self.cartridge_type_input.currentTextChanged.connect(self.on_value_changed)
         layout.addWidget(self.cartridge_type_input, 1)
         
         # Description
@@ -119,7 +133,7 @@ class OrderLineWidget(QWidget):
     
     def is_empty(self):
         """Vérifier si la ligne est vide"""
-        return (self.cartridge_type_input.text().strip() == "" and
+        return (self.cartridge_type_input.currentText().strip() == "" and
                 self.description_input.text().strip() == "" and 
                 self.quantity_input.text().strip() == "" and 
                 self.price_input.text().strip() == "")
@@ -136,7 +150,7 @@ class OrderLineWidget(QWidget):
             total = 0.0
         
         return {
-            'cartridge_type': self.cartridge_type_input.text().strip(),
+            'cartridge_type': self.cartridge_type_input.currentText().strip(),
             'description': self.description_input.text().strip(),
             'quantity': quantity,
             'unit_price': price,
@@ -505,7 +519,7 @@ class OrderFormDialog(QDialog):
                 continue
             
             # Vérifier que tous les champs obligatoires sont remplis
-            cartridge_type = line.cartridge_type_input.text().strip()
+            cartridge_type = line.cartridge_type_input.currentText().strip()
             quantity = line.quantity_input.text().strip()
             price = line.price_input.text().strip()
             
