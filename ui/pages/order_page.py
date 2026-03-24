@@ -11,23 +11,31 @@ from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
     QMessageBox,
-    QFrame
+    QFrame,
+    QFileDialog
 )
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from ui.dialogs.order_form_dialog import OrderFormDialog
 from database.orders import get_recent_orders, get_order_details, delete_order
+from utils.excel_export import export_order_to_excel
+from utils.pdf_export import convert_excel_to_pdf
+from utils.mail_export import send_by_mail
+import tempfile
+import os
 
 
 class OrderCardWidget(QFrame):
     """Widget carte pour afficher une commande"""
     
-    def __init__(self, order, view_callback, delete_callback):
+    def __init__(self, order, view_callback, delete_callback, export_callback, mail_callback):
         super().__init__()
         self.order = order
         self.view_callback = view_callback
         self.delete_callback = delete_callback
+        self.export_callback = export_callback
+        self.mail_callback = mail_callback
         self.init_ui()
     
     def init_ui(self):
@@ -89,6 +97,18 @@ class OrderCardWidget(QFrame):
         view_button.clicked.connect(self.on_view_clicked)
         actions_layout.addWidget(view_button)
         
+        export_button = QPushButton("Download PDF")
+        export_button.setMinimumWidth(120)
+        export_button.setObjectName("mainButton")
+        export_button.clicked.connect(self.on_export_clicked)
+        actions_layout.addWidget(export_button)
+        
+        mail_button = QPushButton("Send by mail")
+        mail_button.setMinimumWidth(120)
+        mail_button.setObjectName("mainButton")
+        mail_button.clicked.connect(self.on_mail_clicked)
+        actions_layout.addWidget(mail_button)
+        
         delete_button = QPushButton("Delete Order")
         delete_button.setMinimumWidth(120)
         delete_button.setObjectName("dangerButton")
@@ -103,6 +123,14 @@ class OrderCardWidget(QFrame):
     def on_view_clicked(self):
         """Callback pour le bouton View"""
         self.view_callback(self.order['id'])
+    
+    def on_export_clicked(self):
+        """Callback pour le bouton Download PDF"""
+        self.export_callback(self.order['id'], self.order['po_number'])
+    
+    def on_mail_clicked(self):
+        """Callback pour le bouton Send by mail"""
+        self.mail_callback(self.order['id'], self.order['po_number'])
     
     def on_delete_clicked(self):
         """Callback pour le bouton Delete"""
@@ -251,6 +279,8 @@ class OrderPage(QWidget):
             card = OrderCardWidget(
                 order,
                 view_callback=self.view_order_details,
+                export_callback=self.export_order_action,
+                mail_callback=self.mail_order_action,
                 delete_callback=self.delete_order_action
             )
             self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, card)
@@ -308,3 +338,125 @@ class OrderPage(QWidget):
                 self.load_recent_orders()
             else:
                 QMessageBox.critical(self, "Error", "Failed to delete order.")
+
+    def export_order_action(self, order_id, po_number):
+        """
+        Exporte une commande en fichier PDF.
+        Affiche un dialogue pour choisir le lieu de sauvegarde.
+        """
+        try:
+            # Récupérer les détails de la commande
+            order = get_order_details(order_id)
+            if not order:
+                QMessageBox.warning(self, "Error", "Could not load order details.")
+                return
+            
+            order_data = {
+                'po_number': order['po_number'],
+                'date': order['order_date'],
+                'lines': order['items'],
+                'total': order['total']
+            }
+            
+            # Demander le dossier de sauvegarde
+            folder_path = QFileDialog.getExistingDirectory(
+                self,
+                "Select folder to save Order PDF",
+                ""
+            )
+
+            if not folder_path:
+                return
+
+            # Créer un fichier Excel temporaire pour la conversion
+            temp_dir = tempfile.gettempdir()
+            temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
+            
+            # Générer l'Excel temporaire
+            export_order_to_excel(order_data, temp_excel_path)
+            
+            # Convertir l'Excel temporaire en PDF
+            pdf_path = os.path.join(folder_path, f"Order_{po_number}.pdf")
+            convert_excel_to_pdf(temp_excel_path, pdf_path)
+            
+            # Supprimer le fichier Excel temporaire
+            try:
+                os.remove(temp_excel_path)
+            except Exception:
+                pass
+            
+            QMessageBox.information(
+                self,
+                "Export successful",
+                f"Order has been exported to:\n{pdf_path}"
+            )
+                    
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export error",
+                f"An error occurred while exporting: {str(e)}"
+            )
+
+    def mail_order_action(self, order_id, po_number):
+        """
+        Envoie une commande par email via Outlook.
+        Génère un PDF temporaire et l'attache au message.
+        """
+        try:
+            # Récupérer les détails de la commande
+            order = get_order_details(order_id)
+            if not order:
+                QMessageBox.warning(self, "Error", "Could not load order details.")
+                return
+            
+            order_data = {
+                'po_number': order['po_number'],
+                'date': order['order_date'],
+                'lines': order['items'],
+                'total': order['total']
+            }
+            
+            # Créer un fichier temporaire pour le PDF
+            temp_dir = tempfile.gettempdir()
+            temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
+            pdf_path = os.path.join(temp_dir, f"Order_{po_number}.pdf")
+            
+            # Générer l'Excel temporaire
+            export_order_to_excel(order_data, temp_excel_path)
+            
+            # Convertir l'Excel temporaire en PDF
+            convert_excel_to_pdf(temp_excel_path, pdf_path)
+            
+            # Supprimer le fichier Excel temporaire
+            try:
+                os.remove(temp_excel_path)
+            except Exception:
+                pass
+            
+            # Envoyer par mail via Outlook
+            send_success = send_by_mail(
+                pdf_path,
+                subject=f"Purchase Order {po_number}",
+                body=""
+            )
+            
+            if send_success:
+                # Nettoyer le fichier temporaire
+                try:
+                    os.remove(pdf_path)
+                except:
+                    pass
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "An error occurred while opening Outlook."
+                )
+                    
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Send email error",
+                f"An error occurred while sending the email: {str(e)}"
+            )

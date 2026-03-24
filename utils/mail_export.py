@@ -8,12 +8,14 @@ import platform
 import win32com.client  # type: ignore
 
 
-def send_cartridges_by_mail(pdf_path):
+def send_by_mail(pdf_path, subject="Document", body=""):
     """
-    Envoie un PDF par email via Outlook.
+    Envoie un PDF par email via Outlook avec sujet et corps personnalisables.
     
     Args:
         pdf_path (str): Chemin vers le fichier PDF à envoyer
+        subject (str): Sujet de l'email
+        body (str): Corps du message (optionnel)
         
     Returns:
         bool: True si l'email a été ouvert correctement, False sinon
@@ -34,11 +36,11 @@ def send_cartridges_by_mail(pdf_path):
         
         # Créer un nouvel email
         mail = outlook.CreateItem(0)  # 0 = olMailItem
-        mail.Subject = "Cartridges to Order"
-        mail.Body = ""
+        mail.Subject = subject
+        mail.Body = body
         
         # Ajouter la pièce jointe
-        mail.Attachments.Add(pdf_path)
+        mail.Attachments.Add(os.path.abspath(pdf_path))
         
         # Afficher le mail pour que l'utilisateur puisse le modifier et l'envoyer
         mail.Display()
@@ -48,3 +50,17 @@ def send_cartridges_by_mail(pdf_path):
     except Exception as e:
         print(f"Error sending email: {str(e)}")
         return False
+
+
+def send_cartridges_by_mail(pdf_path):
+    """
+    Envoie les cartouches à commander par email via Outlook.
+    Fonction de compatibilité qui utilise send_by_mail().
+    
+    Args:
+        pdf_path (str): Chemin vers le fichier PDF à envoyer
+        
+    Returns:
+        bool: True si l'email a été ouvert correctement, False sinon
+    """
+    return send_by_mail(pdf_path, subject="Cartridges to Order")

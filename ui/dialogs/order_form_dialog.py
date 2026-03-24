@@ -24,6 +24,7 @@ from PySide6.QtCore import Qt, QDate, QRegularExpression
 from PySide6.QtGui import QFont, QRegularExpressionValidator
 from utils.excel_export import export_order_to_excel
 from utils.pdf_export import convert_excel_to_pdf
+from utils.mail_export import send_by_mail
 from database.orders import save_order
 from database.cartridges import get_all_cartridges
 import tempfile
@@ -370,16 +371,16 @@ class OrderFormDialog(QDialog):
         # Boutons d'action
         button_layout = QHBoxLayout()
         
-        export_button = QPushButton("Download PDF")
-        export_button.setObjectName("mainButton")
-        export_button.clicked.connect(self.generate_excel)
+        done_button = QPushButton("Done")
+        done_button.setObjectName("mainButton")
+        done_button.clicked.connect(self.accept)
         
         cancel_button = QPushButton("Cancel")
         cancel_button.setObjectName("mainButton")
         cancel_button.clicked.connect(self.reject)
         
         button_layout.addStretch()
-        button_layout.addWidget(export_button)
+        button_layout.addWidget(done_button)
         button_layout.addWidget(cancel_button)
         
         main_layout.addLayout(button_layout)
@@ -497,17 +498,17 @@ class OrderFormDialog(QDialog):
             'total': float(self.total_label.text().split()[0])
         }
 
-    def generate_excel(self):
-        """Générer et sauvegarder l'Excel"""
+    def validate_order_data(self):
+        """Valider les données de la commande et retourner True si valide"""
         # Valider PO Number
         if not self.po_number_input.text().strip():
             QMessageBox.warning(self, "Validation Error", "Please enter a PO Number.")
-            return
+            return False
 
         # Valider Date
         if not self.date_input.text().strip():
             QMessageBox.warning(self, "Validation Error", "Please enter a Date.")
-            return
+            return False
 
         # Vérifier qu'au moins une ligne est remplie et que tous les champs obligatoires sont présents
         has_complete_lines = False
@@ -544,7 +545,7 @@ class OrderFormDialog(QDialog):
                 "Validation Error", 
                 f"Quantity must be greater than 0 for line(s): {line_numbers}"
             )
-            return
+            return False
         
         # Afficher les erreurs de champs manquants
         if incomplete_lines:
@@ -554,43 +555,22 @@ class OrderFormDialog(QDialog):
                 "Validation Error", 
                 f"Please fill in all required fields for line(s): {line_numbers}\n\nRequired fields: Cartridge Type, Qty, and Price."
             )
-            return
+            return False
         
         if not has_complete_lines:
             QMessageBox.warning(self, "Validation Error", "Please add at least one complete order line with all fields filled.")
+            return False
+        
+        return True
+
+    def accept(self):
+        """Valider et sauvegarder la commande"""
+        if not self.validate_order_data():
             return
-
-        # Demander le dossier de sauvegarde
-        folder_path = QFileDialog.getExistingDirectory(
-            self,
-            "Select folder to save Order files",
-            ""
-        )
-
-        if not folder_path:
-            return
-
+        
         try:
             order_data = self.get_order_data()
             po_number = self.po_number_input.text()
-            
-            # Créer un fichier Excel temporaire pour la conversion
-            temp_dir = tempfile.gettempdir()
-            temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
-            
-            # Générer l'Excel temporaire
-            export_order_to_excel(order_data, temp_excel_path)
-            
-            # Convertir l'Excel temporaire en PDF
-            pdf_path = os.path.join(folder_path, f"Order_{po_number}.pdf")
-            convert_excel_to_pdf(temp_excel_path, pdf_path)
-            
-            # Supprimer le fichier Excel temporaire
-            try:
-                os.remove(temp_excel_path)
-            except Exception:
-                # Si la suppression échoue, ignorer (fichier temporaire)
-                pass
             
             # Sauvegarder la commande en base de données
             order_id = save_order(
@@ -604,14 +584,15 @@ class OrderFormDialog(QDialog):
                 QMessageBox.information(
                     self, 
                     "Success", 
-                    f"PDF generated successfully!\n\nOrder saved to database (ID: {order_id})\n\n{pdf_path}"
+                    "Order saved"
                 )
             else:
                 QMessageBox.warning(
                     self,
-                    "Partial Success",
-                    f"PDF generated successfully, but order could not be saved to database.\n\n{pdf_path}"
+                    "Error",
+                    "Order could not be saved to database."
                 )
-            self.accept()
+            
+            super().accept()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error generating PDF:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Error saving order:\n{str(e)}")

@@ -22,3 +22,6 @@ ENV/
 build/
 dist/
 *.egg-info/
+
+# Assets - Business sensitive files
+assets/order_model.xlsx
