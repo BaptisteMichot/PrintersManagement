@@ -472,8 +472,8 @@ class OrderFormDialog(QDialog):
         
         for line in self.order_lines:
             data = line.get_data()
-            # Ne garder que les lignes non vides
-            if data['description'] or data['quantity'] > 0 or data['unit_price'] > 0:
+            # Ne garder que les lignes non vides (avec quantité ou prix > 0)
+            if data['quantity'] > 0 or data['unit_price'] > 0:
                 order_lines.append(data)
         
         return {
@@ -504,13 +504,12 @@ class OrderFormDialog(QDialog):
             if line.is_empty():
                 continue
             
-            # Vérifier que tous les champs sont remplis
+            # Vérifier que tous les champs obligatoires sont remplis
             cartridge_type = line.cartridge_type_input.text().strip()
-            description = line.description_input.text().strip()
             quantity = line.quantity_input.text().strip()
             price = line.price_input.text().strip()
             
-            if not cartridge_type or not description or not quantity or not price:
+            if not cartridge_type or not quantity or not price:
                 incomplete_lines.append(idx)
             else:
                 # Vérifier que la quantité est > 0
@@ -539,7 +538,7 @@ class OrderFormDialog(QDialog):
             QMessageBox.warning(
                 self, 
                 "Validation Error", 
-                f"Please fill in all fields for line(s): {line_numbers}\n\nAll fields are required: Cartridge Type, Description, Qty, and Price."
+                f"Please fill in all required fields for line(s): {line_numbers}\n\nRequired fields: Cartridge Type, Qty, and Price."
             )
             return
         
