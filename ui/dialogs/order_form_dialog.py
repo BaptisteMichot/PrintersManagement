@@ -224,6 +224,7 @@ class OrderFormDialog(QDialog):
         originator_layout.addWidget(QLabel("Order placed by:"))
         self.originator_combo = QComboBox()
         self.originator_combo.addItem("Ibrahima DIARRA", "ibrahima")
+        self.originator_combo.addItem("Jo Blommaert", "jo_blommaert")
         self.originator_combo.addItem("Other user", "other")
         self.originator_combo.setMaximumWidth(200)
         self.originator_combo.currentIndexChanged.connect(self.on_originator_changed)
@@ -530,6 +531,8 @@ class OrderFormDialog(QDialog):
         # Déterminer le nom de l'originator
         if self.originator_combo.currentData() == "ibrahima":
             originator_name = "Ibrahima DIARRA"
+        elif self.originator_combo.currentData() == "jo_blommaert":
+            originator_name = "Jo Blommaert"
         else:
             originator_name = self.originator_name_input.text().strip() or "Unknown"
         
