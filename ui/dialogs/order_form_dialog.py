@@ -231,7 +231,6 @@ class OrderFormDialog(QDialog):
         
         originator_layout.addWidget(QLabel("Name:"))
         self.originator_name_input = QLineEdit()
-        self.originator_name_input.setPlaceholderText("e.g., John Doe")
         self.originator_name_input.setVisible(False)
         self.originator_name_input.setMaximumWidth(200)
         originator_layout.addWidget(self.originator_name_input)
