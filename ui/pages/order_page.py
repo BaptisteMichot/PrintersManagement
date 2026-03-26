@@ -72,7 +72,7 @@ class OrderCardWidget(QFrame):
         
         layout.addLayout(header_layout)
         
-        # Infos : Total et Items count
+        # Infos : Total, Items count et Originator
         info_layout = QHBoxLayout()
         info_layout.setSpacing(20)
         
@@ -83,6 +83,12 @@ class OrderCardWidget(QFrame):
         items_label = QLabel(f"<b>Items:</b> {self.order['item_count']}")
         items_label.setStyleSheet("color: #636e72;")
         info_layout.addWidget(items_label)
+        
+        # Afficher l'originator (qui a passé la commande)
+        originator_name = self.order.get('originator_name', 'Ibrahima DIARRA')
+        originator_label = QLabel(f"<b>By:</b> {originator_name}")
+        originator_label.setStyleSheet("color: #636e72;")
+        info_layout.addWidget(originator_label)
         
         info_layout.addStretch()
         layout.addLayout(info_layout)
@@ -334,7 +340,6 @@ class OrderPage(QWidget):
         
         if reply == QMessageBox.Yes:
             if delete_order(order_id):
-                QMessageBox.information(self, "Success", "Order deleted successfully.")
                 self.load_recent_orders()
             else:
                 QMessageBox.critical(self, "Error", "Failed to delete order.")
@@ -372,8 +377,8 @@ class OrderPage(QWidget):
             temp_dir = tempfile.gettempdir()
             temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
             
-            # Générer l'Excel temporaire
-            export_order_to_excel(order_data, temp_excel_path)
+            # Générer l'Excel temporaire avec l'originator
+            export_order_to_excel(order_data, temp_excel_path, order['originator_name'])
             
             # Convertir l'Excel temporaire en PDF
             pdf_path = os.path.join(folder_path, f"Order_{po_number}.pdf")
@@ -422,8 +427,8 @@ class OrderPage(QWidget):
             temp_excel_path = os.path.join(temp_dir, f"Order_{po_number}_temp.xlsx")
             pdf_path = os.path.join(temp_dir, f"Order_{po_number}.pdf")
             
-            # Générer l'Excel temporaire
-            export_order_to_excel(order_data, temp_excel_path)
+            # Générer l'Excel temporaire avec l'originator
+            export_order_to_excel(order_data, temp_excel_path, order['originator_name'])
             
             # Convertir l'Excel temporaire en PDF
             convert_excel_to_pdf(temp_excel_path, pdf_path)

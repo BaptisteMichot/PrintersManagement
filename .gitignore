@@ -25,3 +25,4 @@ dist/
 
 # Assets - Business sensitive files
 assets/order_model.xlsx
+assets/order_model_other_user.xlsx

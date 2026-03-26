@@ -218,6 +218,33 @@ class OrderFormDialog(QDialog):
         separator.setFrameShape(QFrame.HLine)
         main_layout.addWidget(separator)
 
+        # Section Originator (qui passe la commande)
+        originator_layout = QHBoxLayout()
+        
+        originator_layout.addWidget(QLabel("Order placed by:"))
+        self.originator_combo = QComboBox()
+        self.originator_combo.addItem("Ibrahima DIARRA", "ibrahima")
+        self.originator_combo.addItem("Other user", "other")
+        self.originator_combo.setMaximumWidth(200)
+        self.originator_combo.currentIndexChanged.connect(self.on_originator_changed)
+        originator_layout.addWidget(self.originator_combo)
+        
+        originator_layout.addWidget(QLabel("Name:"))
+        self.originator_name_input = QLineEdit()
+        self.originator_name_input.setPlaceholderText("e.g., John Doe")
+        self.originator_name_input.setVisible(False)
+        self.originator_name_input.setMaximumWidth(200)
+        originator_layout.addWidget(self.originator_name_input)
+        
+        originator_layout.addStretch()
+        
+        main_layout.addLayout(originator_layout)
+
+        # Séparateur
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.HLine)
+        main_layout.addWidget(separator2)
+
         # Section Destinataire (commenté - ces informations sont fixes sur le modèle)
         # recipient_layout = QHBoxLayout()
         # recipient_layout.addWidget(QLabel("Recipient:"))
@@ -233,6 +260,9 @@ class OrderFormDialog(QDialog):
         # main_layout.addLayout(recipient_layout)
 
         # Séparateur
+        separator3 = QFrame()
+        separator3.setFrameShape(QFrame.HLine)
+        main_layout.addWidget(separator3)
 
         # Séparateur
         separator2 = QFrame()
@@ -443,6 +473,13 @@ class OrderFormDialog(QDialog):
         
         self.total_label.setText(f"{grand_total:.2f} EUR")
 
+    def on_originator_changed(self):
+        """Afficher/masquer le champ de nom personnalisé selon la sélection"""
+        is_other = self.originator_combo.currentData() == "other"
+        self.originator_name_input.setVisible(is_other)
+        if not is_other:
+            self.originator_name_input.clear()
+
     def add_line(self):
         """Ajouter une nouvelle ligne de commande"""
         line_widget = OrderLineWidget()
@@ -491,11 +528,18 @@ class OrderFormDialog(QDialog):
             if data['quantity'] > 0 or data['unit_price'] > 0:
                 order_lines.append(data)
         
+        # Déterminer le nom de l'originator
+        if self.originator_combo.currentData() == "ibrahima":
+            originator_name = "Ibrahima DIARRA"
+        else:
+            originator_name = self.originator_name_input.text().strip() or "Unknown"
+        
         return {
             'po_number': self.po_number_input.text() or "N/A",
             'date': self.date_input.text(),
             'lines': order_lines,
-            'total': float(self.total_label.text().split()[0])
+            'total': float(self.total_label.text().split()[0]),
+            'originator_name': originator_name
         }
 
     def validate_order_data(self):
@@ -577,7 +621,8 @@ class OrderFormDialog(QDialog):
                 po_number=po_number,
                 order_date=order_data['date'],
                 total=order_data['total'],
-                order_lines=order_data['lines']
+                order_lines=order_data['lines'],
+                originator_name=order_data['originator_name']
             )
             
             if order_id:

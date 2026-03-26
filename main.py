@@ -4,7 +4,6 @@
 # ==========================================
 
 import sys
-import os
 import warnings
 
 # Supprimer les warnings non critiques de PySide6

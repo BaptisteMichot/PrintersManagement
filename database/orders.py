@@ -7,7 +7,7 @@ from database.connection import connect_db
 from datetime import datetime
 
 
-def save_order(po_number, order_date, total, order_lines):
+def save_order(po_number, order_date, total, order_lines, originator_name="Ibrahima DIARRA"):
     """
     Sauvegarde une nouvelle commande et ses lignes en base de données.
     
@@ -21,6 +21,7 @@ def save_order(po_number, order_date, total, order_lines):
             - quantity: Quantité
             - unit_price: Prix unitaire
             - total: Total de la ligne
+        originator_name (str): Nom de la personne qui passe la commande
     
     Returns:
         int: ID de la commande créée, ou None en cas d'erreur
@@ -30,10 +31,10 @@ def save_order(po_number, order_date, total, order_lines):
             with conn.cursor() as cursor:
                 # Inserrer la commande
                 cursor.execute("""
-                    INSERT INTO orders (po_number, order_date, total, created_at)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO orders (po_number, order_date, total, originator_name, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id
-                """, (po_number, order_date, total, datetime.now()))
+                """, (po_number, order_date, total, originator_name, datetime.now()))
                 
                 order_id = cursor.fetchone()[0]
                 
@@ -72,6 +73,7 @@ def get_recent_orders(limit=10):
             - total: Montant total
             - created_at: Date de création en base de données
             - item_count: Nombre de lignes dans la commande
+            - originator_name: Nom de la personne qui a passé la commande
     """
     try:
         with connect_db() as conn:
@@ -83,7 +85,8 @@ def get_recent_orders(limit=10):
                         o.order_date,
                         o.total,
                         o.created_at,
-                        COUNT(oi.id) as item_count
+                        COUNT(oi.id) as item_count,
+                        o.originator_name
                     FROM orders o
                     LEFT JOIN order_items oi ON oi.order_id = o.id
                     GROUP BY o.id
@@ -98,7 +101,8 @@ def get_recent_orders(limit=10):
                         "order_date": row[2],
                         "total": row[3],
                         "created_at": row[4],
-                        "item_count": row[5]
+                        "item_count": row[5],
+                        "originator_name": row[6] or "Ibrahima DIARRA"
                     }
                     for row in cursor.fetchall()
                 ]
@@ -122,6 +126,7 @@ def get_order_details(order_id):
             - order_date: Date de la commande
             - total: Montant total
             - created_at: Date de création
+            - originator_name: Nom de la personne qui a passé la commande
             - items: Liste des lignes de commande
     """
     try:
@@ -129,7 +134,7 @@ def get_order_details(order_id):
             with conn.cursor() as cursor:
                 # Récupérer l'en-tête de la commande
                 cursor.execute("""
-                    SELECT id, po_number, order_date, total, created_at
+                    SELECT id, po_number, order_date, total, created_at, originator_name
                     FROM orders
                     WHERE id = %s
                 """, (order_id,))
@@ -164,6 +169,7 @@ def get_order_details(order_id):
                     "order_date": order[2],
                     "total": order[3],
                     "created_at": order[4],
+                    "originator_name": order[5] or "Ibrahima DIARRA",
                     "items": items
                 }
     

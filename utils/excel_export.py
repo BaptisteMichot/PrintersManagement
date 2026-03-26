@@ -9,7 +9,51 @@ from datetime import datetime
 import os
 
 
-def export_order_to_excel(order_data, filepath):
+def safe_write_cell(ws, cell_ref, value):
+    """
+    Écrit une valeur dans une cellule en gérant les cellules fusionnées.
+    Utilise la cellule principale de la région fusionnée.
+    
+    Args:
+        ws: Feuille de travail openpyxl
+        cell_ref: Référence de la cellule (ex: 'C12')
+        value: Valeur à écrire
+    """
+    try:
+        # Essayer d'écrire directement
+        ws[cell_ref].value = value
+    except Exception:
+        try:
+            # Si c'est une MergedCell, chercher la cellule principale de la fusion
+            for merged_range in ws.merged_cells.ranges:
+                if cell_ref in merged_range:
+                    # Écrire dans la première cellule de la plage fusionnée
+                    top_left = merged_range.start_cell
+                    top_left.value = value
+                    return
+            # Si pas fusionnée, réécrire directement
+            ws[cell_ref].value = value
+        except Exception:
+            pass  # Ignorer silencieusement les erreurs d'écriture
+
+
+def write_cell_data(ws, cell_ref, value):
+    """
+    Écrit dans une cellule de données (lignes 23-32) sans unmerger.
+    Ignore les erreurs si la cellule est fusionnée.
+    
+    Args:
+        ws: Feuille de travail openpyxl
+        cell_ref: Référence de la cellule
+        value: Valeur à écrire
+    """
+    try:
+        ws[cell_ref].value = value
+    except Exception:
+        pass  # Ignorer les erreurs pour les cellules fusionnées
+
+
+def export_order_to_excel(order_data, filepath, originator_name="Ibrahima DIARRA"):
     """
     Exporte une commande en fichier Excel basé exactement sur le modèle ABB.
     Remplir seulement le numéro de commande, la date et les lignes de commande.
@@ -20,13 +64,20 @@ def export_order_to_excel(order_data, filepath):
             - date: Date de la commande
             - lines: Liste de dictionnaires avec cartridge_type, description, quantity, unit_price, total
         filepath (str): Chemin où sauvegarder le fichier Excel
+        originator_name (str): Nom de la personne qui passe la commande (défaut: "Ibrahima DIARRA")
         
     Returns:
         bool: True si l'export a réussi, False sinon
     """
     try:
-        # Charger le modèle
-        template_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'order_model.xlsx')
+        # Déterminer quel modèle utiliser selon l'originator
+        if originator_name == "Ibrahima DIARRA":
+            template_name = 'order_model.xlsx'
+        else:
+            template_name = 'order_model_other_user.xlsx'
+        
+        # Charger le modèle approprié
+        template_path = os.path.join(os.path.dirname(__file__), '..', 'assets', template_name)
         wb = load_workbook(template_path)
         ws = wb.active
         
@@ -34,17 +85,22 @@ def export_order_to_excel(order_data, filepath):
         ws.protection.sheet = False
         
         # Remplir seulement les informations variables
-        ws['C12'] = order_data.get('po_number', 'N/A')
+        safe_write_cell(ws, 'C12', order_data.get('po_number', 'N/A'))
         
         # Date
-        ws['C15'] = order_data.get('date', datetime.now().strftime('%d/%m/%Y'))
+        safe_write_cell(ws, 'C15', order_data.get('date', datetime.now().strftime('%d/%m/%Y')))
+        
+        # Remplir le champ Originator (ligne 37, colonne C) SEULEMENT si ce n'est pas Ibrahima
+        # Si c'est Ibrahima, le modèle contient déjà son nom
+        if originator_name != "Ibrahima DIARRA":
+            safe_write_cell(ws, 'C37', originator_name)
         
         # Effacer les anciennes lignes de données (lignes 23-32, pas la ligne 33 qui est le Total)
         for row_idx in range(23, 33):
-            ws[f'A{row_idx}'].value = None
-            ws[f'B{row_idx}'].value = None
-            ws[f'H{row_idx}'].value = None
-            ws[f'I{row_idx}'].value = None
+            write_cell_data(ws, f'A{row_idx}', None)
+            write_cell_data(ws, f'B{row_idx}', None)
+            write_cell_data(ws, f'H{row_idx}', None)
+            write_cell_data(ws, f'I{row_idx}', None)
         
         # Ajouter les lignes de commande
         current_row = 23
@@ -62,16 +118,17 @@ def export_order_to_excel(order_data, filepath):
             # Construire la description avec cartridge_type
             description = f"{line.get('cartridge_type', '')} {line.get('description', '')}".strip()
             
-            ws[f'A{current_row}'] = int(quantity) if quantity == int(quantity) else quantity
-            ws[f'B{current_row}'] = description
-            ws[f'H{current_row}'] = unit_price
+            write_cell_data(ws, f'A{current_row}', int(quantity) if quantity == int(quantity) else quantity)
+            write_cell_data(ws, f'B{current_row}', description)
+            write_cell_data(ws, f'H{current_row}', unit_price)
             
             # Ajouter la formule de total
-            ws[f'I{current_row}'] = f'=IF(H{current_row}="","",H{current_row}*A{current_row})'
+            write_cell_data(ws, f'I{current_row}', f'=IF(H{current_row}="","",H{current_row}*A{current_row})')
             
             # Préserver l'alignement vertical du modèle tout en appliquant wrap_text
             try:
-                cell_b = ws[f'B{current_row}']
+                cell_ref = f'B{current_row}'
+                cell_b = ws[cell_ref]
                 existing_alignment = cell_b.alignment
                 cell_b.alignment = Alignment(
                     wrap_text=True, 
@@ -89,8 +146,7 @@ def export_order_to_excel(order_data, filepath):
         
         # Remplir la ligne Total (ligne 33) avec la formule SUM
         try:
-            total_cell = ws['I33']
-            total_cell.value = f'=SUM(I23:I32)'
+            safe_write_cell(ws, 'I33', f'=SUM(I23:I32)')
         except Exception as e:
             print(f"Cannot write to total cell: {str(e)}")
         
