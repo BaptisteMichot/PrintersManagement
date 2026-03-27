@@ -82,8 +82,8 @@ class OrderLineWidget(QWidget):
         self.quantity_input = QLineEdit()
         self.quantity_input.setPlaceholderText("0")
         self.quantity_input.setMaximumWidth(40)
-        self.quantity_input.setValidator(QRegularExpressionValidator(QRegularExpression(r"^\d*$")))
-        self.quantity_input.textChanged.connect(self.on_value_changed)
+        # ENLEVER le validateur Qt - valider en Python à la place
+        self.quantity_input.textChanged.connect(self.on_quantity_input_changed)
         qty_layout.addWidget(self.quantity_input)
         qty_container.setLayout(qty_layout)
         layout.addWidget(qty_container, 0)
@@ -99,8 +99,8 @@ class OrderLineWidget(QWidget):
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("0.00")
         self.price_input.setMaximumWidth(70)
-        self.price_input.setValidator(QRegularExpressionValidator(QRegularExpression(r"^\d+(\.\d{0,2})?$")))
-        self.price_input.textChanged.connect(self.on_value_changed)
+        # ENLEVER le validateur Qt qui bloque les saisies - valider en Python à la place
+        self.price_input.textChanged.connect(self.on_price_input_changed)
         price_layout.addWidget(self.price_input)
         price_container.setLayout(price_layout)
         layout.addWidget(price_container, 0)
@@ -122,11 +122,72 @@ class OrderLineWidget(QWidget):
         
         self.setLayout(layout)
     
+    def on_price_input_changed(self):
+        """Valider et corriger l'input du prix, puis recalculer le total"""
+        text = self.price_input.text()
+        
+        # Filtrer : garder que les chiffres, virgules et points
+        filtered = ''
+        has_separator = False
+        decimal_count = 0
+        
+        for char in text:
+            if char.isdigit():
+                if has_separator:
+                    decimal_count += 1
+                    if decimal_count > 2:  # Limiter à 2 décimales
+                        continue
+                filtered += char
+            elif char in ',.':
+                if not has_separator:  # Permettre qu'une seule virgule/point
+                    filtered += '.'
+                    has_separator = True
+        
+        # Mettre à jour le champ avec le texte filtré si différent
+        if filtered != text:
+            self.price_input.blockSignals(True)
+            self.price_input.setText(filtered)
+            self.price_input.blockSignals(False)
+        
+        # Recalculer le total
+        self.on_value_changed()
+    
+    def on_quantity_input_changed(self):
+        """Valider et corriger l'input de la quantité"""
+        text = self.quantity_input.text()
+        
+        # Filtrer : garder que les chiffres et virgule/point
+        filtered = ''
+        has_separator = False
+        decimal_count = 0
+        
+        for char in text:
+            if char.isdigit():
+                if has_separator:
+                    decimal_count += 1
+                    if decimal_count > 2:  # Limiter à 2 décimales
+                        continue
+                filtered += char
+            elif char in ',.' and not has_separator:
+                filtered += '.'
+                has_separator = True
+        
+        # Mettre à jour le champ avec le texte filtré si différent
+        if filtered != text:
+            self.quantity_input.blockSignals(True)
+            self.quantity_input.setText(filtered)
+            self.quantity_input.blockSignals(False)
+        
+        # Recalculer le total
+        self.on_value_changed()
+    
     def on_value_changed(self):
         """Recalculer le total de la ligne"""
         try:
-            quantity = float(self.quantity_input.text()) if self.quantity_input.text() else 0.0
-            price = float(self.price_input.text()) if self.price_input.text() else 0.0
+            quantity_text = self.quantity_input.text().replace(',', '.') if self.quantity_input.text() else '0'
+            price_text = self.price_input.text().replace(',', '.') if self.price_input.text() else '0'
+            quantity = float(quantity_text) if quantity_text else 0.0
+            price = float(price_text) if price_text else 0.0
             total = quantity * price
             self.total_label.setText(f"{total:.2f}")
         except ValueError:
@@ -142,8 +203,10 @@ class OrderLineWidget(QWidget):
     def get_data(self):
         """Récupérer les données de la ligne"""
         try:
-            quantity = float(self.quantity_input.text()) if self.quantity_input.text() else 0.0
-            price = float(self.price_input.text()) if self.price_input.text() else 0.0
+            quantity_text = self.quantity_input.text().replace(',', '.') if self.quantity_input.text() else '0'
+            price_text = self.price_input.text().replace(',', '.') if self.price_input.text() else '0'
+            quantity = float(quantity_text) if quantity_text else 0.0
+            price = float(price_text) if price_text else 0.0
             total = quantity * price
         except ValueError:
             quantity = 0.0
