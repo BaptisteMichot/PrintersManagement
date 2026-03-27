@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from ui.dialogs.order_form_dialog import OrderFormDialog
+from ui.dialogs.order_details_dialog import OrderDetailsDialog
 from database.orders import get_recent_orders, get_order_details, delete_order
 from utils.excel_export import export_order_to_excel
 from utils.pdf_export import convert_excel_to_pdf
@@ -305,27 +306,7 @@ class OrderPage(QWidget):
             QMessageBox.warning(self, "Error", "Could not load order details.")
             return
         
-        # Créer un message détaillé avec les informations de commande
-        details = f"""
-        <b>Purchase Order Number:</b> {order['po_number']}<br>
-        <b>Date:</b> {order['order_date']}<br>
-        <b>Total:</b> {order['total']:.2f} EUR<br>
-        <br>
-        <b>Order Items:</b><br>
-        """
-        
-        for item in order['items']:
-            details += f"""
-            • {item['cartridge_type']} - {item['description']}<br>
-            &nbsp;&nbsp;Qty: {item['quantity']}, Price: {item['unit_price']:.2f} EUR, Total: {item['total']:.2f} EUR<br>
-            """
-        
-        dialog = QMessageBox(self)
-        dialog.setWindowTitle(f"Order Details - {order['po_number']}")
-        dialog.setText("Order Information")
-        dialog.setInformativeText(details)
-        dialog.setTextFormat(Qt.RichText)
-        dialog.setStandardButtons(QMessageBox.Ok)
+        dialog = OrderDetailsDialog(order, self)
         dialog.exec()
 
     def delete_order_action(self, order_id, po_number):
