@@ -17,6 +17,7 @@ def convert_excel_to_pdf(excel_path, pdf_path):
     """
     Convertit un fichier Excel en PDF en utilisant Excel COM.
     Garantit une ressemblance exacte entre le fichier Excel et le PDF.
+    Fonctionne en arrière-plan sans affecter les autres fichiers Excel ouverts.
     
     Args:
         excel_path (str): Chemin complet vers le fichier Excel à convertir
@@ -27,23 +28,46 @@ def convert_excel_to_pdf(excel_path, pdf_path):
     """
     try:
         import win32com.client
+        import gc
         
-        # Initialiser Excel
-        excel_app = win32com.client.Dispatch('Excel.Application')
+        # Créer une nouvelle instance Excel TOTALEMENT INDÉPENDANTE
+        # DispatchEx crée une instance complètement nouvelle, sans fusionner avec l'existante
+        excel_app = win32com.client.DispatchEx('Excel.Application')
         excel_app.Visible = False
         excel_app.DisplayAlerts = False
+        excel_app.ScreenUpdating = False
+        excel_app.EnableEvents = False
         
-        # Ouvrir le classeur
-        workbook = excel_app.Workbooks.Open(os.path.abspath(excel_path))
+        # Ouvrir le classeur en lecture seule pour éviter les dialogues de sauvegarde
+        workbook = excel_app.Workbooks.Open(
+            os.path.abspath(excel_path),
+            ReadOnly=True,
+            UpdateLinks=False
+        )
         
         try:
-            # Convertir en PDF (0 = xlTypePDF)
-            workbook.ExportAsFixedFormat(0, os.path.abspath(pdf_path))
+            # Convertir en PDF avec les paramètres complets
+            # 0 = xlTypePDF, OpenAfterPublish=False pour ne pas afficher le PDF
+            workbook.ExportAsFixedFormat(
+                Type=0,  # xlTypePDF
+                Filename=os.path.abspath(pdf_path),
+                Quality=0,  # xlQualityStandard
+                IncludeDocProperties=True,
+                IgnorePrintAreas=False,
+                OpenAfterPublish=False  # Crucial : ne pas ouvrir le PDF
+            )
             return True
         finally:
             # Fermer le classeur sans sauvegarder
-            workbook.Close(False)
+            workbook.Close(SaveChanges=False)
+            
+            # Fermer l'application Excel de manière propre et libérer la mémoire
             excel_app.Quit()
+            
+            # Libérer les références COM et forcer la récupération de mémoire
+            del workbook
+            del excel_app
+            gc.collect()
             
     except ImportError:
         print("Error: win32com.client not available. Please install pywin32.")
